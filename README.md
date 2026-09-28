@@ -1,61 +1,166 @@
-# Agility Runner Timer
+# Agility Runner Timer System
 
-An Arduino-based agility timer system designed to test a runner's reaction time and speed. The system uses four ultrasonic sensors to track the runner's progress, an OLED screen for real-time display, and randomized path logic to test agility.
+An Arduino-based agility timer designed to test a runner's **reaction time, speed, and agility**. Four ultrasonic sensors act as timing gates, a 128×64 OLED shows real-time feedback, and a randomized path decision at the V-Bend keeps every run unpredictable.
+
+---
+
+## Course Layout
+
+```
+  [FINISH A]          [FINISH B]
+  S3 + LED A          S4 + LED B
+       \    ← 5m →       /
+        \               /
+         \             /
+          \           /
+           [ V-BEND ] ← 5m from each finish
+                |
+              2.5m
+                |
+           [ S2 Sensor ]
+                |
+              2.5m
+                |
+          [ START LINE ]
+             S1 Sensor
+```
+
+![Course Layout](assets/course_layout.jpg)
+
+### Distance Reference
+
+| Segment                        | Distance |
+| ------------------------------ | -------- |
+| Start Line (S1) → S2           | 2.5 m    |
+| S2 → V-Bend (turn point)       | 2.5 m    |
+| V-Bend → Finish A (S3)         | 5.0 m    |
+| V-Bend → Finish B (S4)         | 5.0 m    |
+| **Total run (one path)**       | **10 m** |
+
+---
+
+## How It Works
+
+1. **Start**: Runner stands at the Start Line. S1 detects them at < 100 cm.
+2. **Timer begins**: The moment they leave the start gate (S1 clears), the clock starts.
+3. **S2 at 2.5 m**: Mid-point sensor. When triggered, the random path is chosen and the corresponding LED at the finish line lights up.
+4. **V-Bend at 5 m**: The runner reaches the turning point and must react to the illuminated finish LED.
+5. **Finish**: Runner crosses the correct finish gate (S3 or S4). Timer stops and final time is shown on the OLED.
+6. **Reset**: Press the physical button to start the next run.
+
+> **The two LEDs are placed physically at the Finish A and Finish B gates** so the runner can see which direction to sprint the moment the light comes on at the V-Bend.
+
+---
 
 ## Features
 
-- **4-Point Tracking**: Measures start, midway (V-Bend), and two finish lines.
-- **Randomized Agility Paths**: At the midway point, the system randomly selects one of two paths for the runner to take.
-- **Visual Indicators**: LEDs light up to instantly signal the chosen path to the runner.
-- **OLED Interface**: Real-time display of states, distances, and lap times.
-- **Calibration Mode**: View live distances of all 4 sensors at once to easily set up your 1-meter trigger gates.
+- 4-point ultrasonic gate tracking (S1 Start → S2 Mid → S3/S4 Finish A/B)
+- Randomized path selection — decided the instant the runner hits S2
+- Indicator LEDs at each finish gate for instant directional cue
+- OLED real-time display: state, elapsed time, and live distance readouts
+- Built-in calibration mode showing all 4 sensor distances live
+
+---
 
 ## Hardware Requirements
 
-- 1x Arduino Uno
-- 4x HC-SR04 Ultrasonic Sensors
-- 1x SSD1306 SPI OLED Display (128x64)
-- 2x LEDs (with suitable current-limiting resistors)
-- 1x Push Button
+| Component                          | Qty |
+| ---------------------------------- | --- |
+| Arduino Uno (or compatible)        | 1   |
+| HC-SR04 Ultrasonic Sensors         | 4   |
+| SSD1306 SPI OLED Display (128×64)  | 1   |
+| LEDs (red for Path A, blue for B)  | 2   |
+| Current-limiting resistors (~220 Ω) | 2   |
+| Push button                        | 1   |
+| Jumper wires + breadboards         | —   |
 
-## Pinout Guide
+---
 
-### 1. SSD1306 OLED Display (SPI)
+## Wiring & Pinout
+
+### OLED Display (SPI — SSD1306)
 
 | Display Pin | Arduino Pin |
 | ----------- | ----------- |
 | GND         | GND         |
-| VDD / VCC   | 5V / 3.3V   |
-| SCK / D0    | Pin 13      |
-| SDA / D1    | Pin 11      |
-| DC          | Pin 8       |
-| CS          | Pin 7       |
-| RES         | Pin 6       |
+| VDD / VCC   | 5 V         |
+| SCK / D0    | 13          |
+| SDA / D1    | 11          |
+| DC          | 8           |
+| CS          | 7           |
+| RES         | 6           |
 
-### 2. HC-SR04 Ultrasonic Sensors
+### Ultrasonic Sensors (HC-SR04)
 
-_Note: All sensors share the 5V and GND connections._
+> All sensors share 5 V and GND rails.
 
-| Sensor | Position   | TRIG Pin | ECHO Pin |
-| ------ | ---------- | -------- | -------- |
-| **S1** | Start Line | Pin 9    | Pin 10   |
-| **S2** | V-Bend     | Pin A0   | Pin A1   |
-| **S3** | Path A End | Pin A2   | Pin A3   |
-| **S4** | Path B End | Pin A4   | Pin A5   |
+| Sensor | Physical Position | TRIG | ECHO |
+| ------ | ----------------- | ---- | ---- |
+| **S1** | Start Line (0 m)  | 9    | 10   |
+| **S2** | Mid Gate (2.5 m)  | A0   | A1   |
+| **S3** | Finish A (10 m)   | A2   | A3   |
+| **S4** | Finish B (10 m)   | A4   | A5   |
 
-### 3. Indicator LEDs & Controls
+### LEDs & Button
 
-| Component    | Arduino Pin | Notes                                                           |
-| ------------ | ----------- | --------------------------------------------------------------- |
-| Path A LED   | Pin 3       | Connect positive leg to Pin 3, negative to GND through resistor |
-| Path B LED   | Pin 4       | Connect positive leg to Pin 4, negative to GND through resistor |
-| Reset Button | Pin 2       | Connect between Pin 2 and GND (Internal pull-up is used)        |
+> Place the LEDs physically **at the finish line gates** so the runner can see the signal from the V-Bend.
 
-## How to Operate
+| Component          | Arduino Pin | Notes                                            |
+| ------------------ | ----------- | ------------------------------------------------ |
+| Path A LED (red)   | 3           | Positive → Pin 3, Negative → GND via 220 Ω      |
+| Path B LED (blue)  | 4           | Positive → Pin 4, Negative → GND via 220 Ω      |
+| Reset Button       | 2           | Between Pin 2 and GND (internal pull-up enabled) |
 
-1. **Calibration**: Upon booting, the system enters `CALIBRATING` mode. Use the live distance readouts on the OLED to position the sidebars for each of the 4 gates so that the gap is exactly 1 meter.
-2. **Ready**: Press the physical reset button (or send `R` via the Serial Monitor) to enter the `READY` state.
-3. **Run**: The runner gets into position at the start line (Sensor 1 distance < 1m). The screen shows `SET...`. As soon as the runner leaves the start line, the timer begins.
-4. **The V-Bend**: The runner reaches the 2.5m mark (Sensor 2). The system randomly selects Path A or Path B and lights up the corresponding LED.
-5. **Finish**: The runner completes the correct path (triggering Sensor 3 or 4). The timer stops, the LED turns off, and the final time is displayed on the screen.
-6. **Reset**: Press the button again to reset the timer for the next run.
+---
+
+## Physical Setup
+
+1. **Lay out the course**: Use tape or cones to mark the start, the 2.5 m mid-point, the V-Bend at 5 m, and both finish lines at 10 m from start.
+2. **Mount sensors**: Use small posts or stands. Each sensor gate should have two sidebars roughly 1 m apart.
+3. **Place LEDs at finish lines**: Mount the Path A LED at the Finish A gate and the Path B LED at the Finish B gate, positioned so they are clearly visible from the V-Bend.
+4. **Connect wiring**: Wire sensors and LEDs to the Arduino. Run long cable if needed (the finish lines are 10 m away).
+5. **Power**: Power the Arduino via USB from a laptop/power bank carried to the start area or via a long cable.
+
+---
+
+## Installation (PlatformIO)
+
+1. Install [VS Code](https://code.visualstudio.com/) and the [PlatformIO IDE extension](https://platformio.org/install/ide?install=vscode).
+2. Open the `runner-agility-test/` folder in VS Code.
+3. PlatformIO reads `platformio.ini` and auto-installs:
+   - `adafruit/Adafruit SSD1306 @ ^2.5.7`
+   - `adafruit/Adafruit GFX Library @ ^1.11.5`
+4. Connect the Arduino Uno.
+5. Click **Upload** (→ arrow in the PlatformIO toolbar).
+
+---
+
+## Operating Instructions
+
+| Step | What to do |
+| ---- | ---------- |
+| 1. Boot | System enters `CALIBRATING` mode. OLED shows live cm readings for all 4 sensors. |
+| 2. Calibrate | Adjust gate sidebars until sensor clearance reads ~100 cm (1 m gap). |
+| 3. Ready | Press button (or send `R` in Serial Monitor) → `READY` state. |
+| 4. Position | Runner steps into start gate. OLED shows `SET...` when S1 detects runner. |
+| 5. Go! | Runner leaves start gate → timer begins automatically. |
+| 6. Mid gate | Runner hits S2 (2.5 m). Random path chosen. Correct finish LED lights up. |
+| 7. V-Bend | Runner reaches turn point (5 m), reads the lit LED, sprints to that finish. |
+| 8. Finish | Runner crosses S3 or S4. Timer stops. Time displayed on OLED. |
+| 9. Reset | Press button → back to `READY` for next runner. |
+
+---
+
+## Project Structure
+
+```
+runner-agility-test/
+├── src/
+│   └── main.cpp          # All firmware logic
+├── include/              # (reserved for future headers)
+├── lib/                  # (reserved for local libraries)
+├── assets/
+│   └── course_layout.jpg # Course diagram
+├── platformio.ini        # Build config (board: Arduino Uno)
+└── README.md
+```

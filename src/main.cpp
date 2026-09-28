@@ -25,10 +25,10 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, OLED_MOSI, OLED_CLK, OLED_
 #define TRIG4_PIN A4
 #define ECHO4_PIN A5
 
-// LEDs and Button
-#define LED_A_PIN 3
-#define LED_B_PIN 4
-#define BUTTON_PIN 2
+// LEDs (place physically AT the finish line gates so runner sees them from V-Bend)
+#define LED_A_PIN 3   // Path A finish LED (e.g. red)  — at Finish A gate
+#define LED_B_PIN 4   // Path B finish LED (e.g. blue) — at Finish B gate
+#define BUTTON_PIN 2  // Reset button
 
 enum State {
   CALIBRATING,
@@ -135,7 +135,10 @@ void loop() {
   display.clearDisplay();
 
   switch (currentState) {
-    // Initial state: Use this to position your 1m bars for all 4 sensors
+    // Initial calibration state.
+    // Course layout:
+    //   S1 (Start, 0m) --2.5m-- S2 (Mid gate, 2.5m) --2.5m-- V-Bend (5m) --5m-- S3/S4 (Finish A/B, 10m)
+    // Position gate sidebars so each sensor reads ~100cm (1m gate width) when clear.
     case CALIBRATING: {
       long d1 = getDistance(TRIG1_PIN, ECHO1_PIN);
       long d2 = getDistance(TRIG2_PIN, ECHO2_PIN);
@@ -146,13 +149,13 @@ void loop() {
       
       display.setTextSize(1);
       display.setCursor(0, 25);
-      display.print("S1(Start) : "); display.print(d1); display.println(" cm");
+      display.print("S1(Start 0m) : "); display.print(d1); display.println("cm");
       display.setCursor(0, 35);
-      display.print("S2(V-Bend): "); display.print(d2); display.println(" cm");
+      display.print("S2(Mid 2.5m) : "); display.print(d2); display.println("cm");
       display.setCursor(0, 45);
-      display.print("S3(Path A): "); display.print(d3); display.println(" cm");
+      display.print("S3(Fin A 10m): "); display.print(d3); display.println("cm");
       display.setCursor(0, 55);
-      display.print("S4(Path B): "); display.print(d4); display.println(" cm");
+      display.print("S4(Fin B 10m): "); display.print(d4); display.println("cm");
       break;
     }
 
@@ -184,24 +187,26 @@ void loop() {
     }
 
     case RUNNING_TO_VBEND: {
+      // Runner is between Start (0m) and the mid gate S2 (2.5m).
+      // S2 sits 2.5m from start; V-Bend is another 2.5m beyond S2 (5m total).
+      // When S2 fires we immediately pick a path and light the LED at that finish gate.
       long d2 = getDistance(TRIG2_PIN, ECHO2_PIN);
       unsigned long elapsed = millis() - startTime;
       
       printCentered("RUNNING", 5, 2);
       printCentered(String(elapsed / 1000.0, 2) + "s", 30, 3);
       
-      // 1.5s cooldown so the runner's legs don't immediately trigger
-      // something as they leave the starting line.
+      // 1.5s cooldown prevents S1 arm/leg noise from immediately triggering S2.
       if (millis() - runningCooldown > 1500) {
-        // Reached the V-Bend (Sensor 2)
+        // Runner crossed S2 at 2.5m — choose random path and light finish LED.
         if (d2 > 0 && d2 < 100) {
-          // Choose a random path!
-          chosenPath = random(0, 2); // 0 or 1
+          chosenPath = random(0, 2); // 0 = Path A, 1 = Path B
           
+          // Light the LED that is physically at the chosen finish gate.
           if (chosenPath == 0) {
-            digitalWrite(LED_A_PIN, HIGH);
+            digitalWrite(LED_A_PIN, HIGH); // LED at Finish A gate turns on
           } else {
-            digitalWrite(LED_B_PIN, HIGH);
+            digitalWrite(LED_B_PIN, HIGH); // LED at Finish B gate turns on
           }
           
           currentState = RUNNING_TO_END;
